@@ -118,10 +118,10 @@ def teste_duas_cameras(camera, cronometro):
             fps = frame_count/elapsed_time
             print(f"FPS DA CAMERA 2:{fps:.2f}")
 
-        cv2.imshow("Teste de cameras", frame)
+        #cv2.imshow("Teste de cameras", frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        #if cv2.waitKey(1) & 0xFF == ord('q'):
+            #break
 
 
 def video_capture_worker(index_cam, cronometro, id_monitoramento):
@@ -233,10 +233,10 @@ def video_capture_worker(index_cam, cronometro, id_monitoramento):
             for i, text in enumerate(texts_to_display):
                 draw_text(processed_frame, text, (10, start_y + (i * line_spacing)))
 
-        cv2.imshow('Deteccao de Movimentos', processed_frame)
+        #cv2.imshow('Deteccao de Movimentos', processed_frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        #if cv2.waitKey(1) & 0xFF == ord('q'):
+            #break
 
     cv2.destroyAllWindows()
     print("Thread de processamento finalizada.")
@@ -294,7 +294,7 @@ def using_industrial_cam():
         if grab_result.GrabSucceeded():
             frame = grab_result.Array
 
-            cv2.imshow("Basler Camera Feed", frame)
+            #cv2.imshow("Basler Camera Feed", frame)
 
         grab_result.Release()
 
