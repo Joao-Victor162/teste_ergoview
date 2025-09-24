@@ -113,15 +113,17 @@ def teste_duas_cameras(camera, cronometro):
         frame_count += 1
         current_time = time.time()
         elapsed_time = current_time-prev_time
+        predicted_class_ml = integration_ml(frame)
+        print(f"Classe de machine learning: {predicted_class_ml}")
 
         if elapsed_time >= 1.0:
             fps = frame_count/elapsed_time
             print(f"FPS DA CAMERA 2:{fps:.2f}")
 
-        #cv2.imshow("Teste de cameras", frame)
+        cv2.imshow("Teste de cameras", frame)
 
-        #if cv2.waitKey(1) & 0xFF == ord('q'):
-            #break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 
 def video_capture_worker(index_cam, cronometro, id_monitoramento):
@@ -233,10 +235,10 @@ def video_capture_worker(index_cam, cronometro, id_monitoramento):
             for i, text in enumerate(texts_to_display):
                 draw_text(processed_frame, text, (10, start_y + (i * line_spacing)))
 
-        #cv2.imshow('Deteccao de Movimentos', processed_frame)
+        cv2.imshow('Deteccao de Movimentos', processed_frame)
 
-        #if cv2.waitKey(1) & 0xFF == ord('q'):
-            #break
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
     cv2.destroyAllWindows()
     print("Thread de processamento finalizada.")
@@ -294,7 +296,7 @@ def using_industrial_cam():
         if grab_result.GrabSucceeded():
             frame = grab_result.Array
 
-            #cv2.imshow("Basler Camera Feed", frame)
+            cv2.imshow("Basler Camera Feed", frame)
 
         grab_result.Release()
 
@@ -349,7 +351,7 @@ def start_record():
 
         if index_cam == 7:
             thread = threading.Thread(target=video_capture_worker, args=(0, cronometro, id_monitoramento))
-            thread_2 = threading.Thread(target=teste_duas_cameras, args=(1, cronometro))
+            thread_2 = threading.Thread(target=teste_duas_cameras, args=(2, cronometro))
 
             thread.start()
             thread_2.start()
@@ -359,7 +361,7 @@ def start_record():
             })
 
         if index_cam == 3:
-            thread = threading.Thread(target=using_industrial_cam())
+            thread = threading.Thread(target=teste_duas_cameras, args=(2, time))
             thread.start()
 
             return jsonify({
