@@ -1,0 +1,16 @@
+services:
+  minio:
+    image: minio/minio
+    container_name: minio_teste
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: HGIjGxNBbi5EDSW9uB2I
+      MINIO_ROOT_PASSWORD: hep38nO6raztiV2YzGktZLzWHjRwZPafkCD33cnc
+    extra_hosts:
+      - "my.domain:127.0.0.1"
+    volumes:
+      - ./minio/data:/data
+      - ./minio/config:/root/.minio
+    command: server /data --console-address ":9001"

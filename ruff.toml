@@ -1,0 +1,46 @@
+# Exclude commonly ignored directories to improve performance.
+exclude = [
+    "__pycache__", ".dvc", ".git", ".github", ".pdm-build", ".ruff_cache", ".venv", ".vscode",
+    "chart", "data", "build", "dist"
+]
+
+# Code style settings.
+line-length = 79
+indent-width = 4
+
+# Target Python version.
+target-version = "py311"
+
+# Define source paths for relative imports.
+src = ["src", "tests"]
+
+[lint]
+# Enable Pyflakes (`F`), pycodestyle errors (`E`), McCabe complexity (`C901`), and isort (`I`).
+select = ["E4", "E7", "E9", "F", "C901", "I"]
+ignore = []
+
+# Allow automatic fixing for all enabled rules when using `--fix`.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables if prefixed with underscores (e.g., `_var`).
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[format]
+# Consistent formatting settings aligned with Black.
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# Enable auto-formatting for code examples inside docstrings.
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[lint.mccabe]
+# Flag errors (`C901`) if the complexity level exceeds 12.
+max-complexity = 12
+
+[lint.isort]
+# Define known first-party modules to improve sorting accuracy.
+known-first-party = ["base"]
