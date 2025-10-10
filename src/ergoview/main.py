@@ -228,12 +228,7 @@ def consumer_integration_ml():
                 stack_frames_ml.put(None)
                 stack_frames_for_ml.task_done()
                 break
-            """
-            A variável predicted_class_ml recebe o valor da
-            predição da classe do modelo de ML de acordo com
-            o movimento das maos detectado no frame capturado.
-            Os valores são 0, 1, 2 e 3 para mao_aberta, manejo_grosseiro, pinça e nenhum dos movimentos respectivamente.
-            """
+
             predicted_class_ml = integration_ml(frame=frames_for_ml)
             contador_ml += 1
             print(f"imagem processada pelo modelo de ML: {contador_ml}")
@@ -290,12 +285,6 @@ def upload_frame_for_minio(id_monitoramento, bucket_name):
             hash_result = hashlib.sha256(hash_input).hexdigest()[:8]
             object_name = f"{id_monitoramento}/frame_{directory}_{hash_result}.avif"
             print(f"object_name: {object_name}")
-
-            if not minio_client.bucket_exists(bucket_name):
-                minio_client.make_bucket(bucket_name)
-                print(f"Bucket '{bucket_name}' criado com sucesso!")
-            else:
-                print(f"Bucket '{bucket_name}' já existe.")
 
             minio_client.put_object(
                 bucket_name=bucket_name,
@@ -402,7 +391,6 @@ def start_record():
 
 @app.route("/api/calibration")
 def calibration():
-
     return jsonify({"mesage":"sucess"})
 
 if __name__ == '__main__':

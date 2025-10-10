@@ -3,7 +3,7 @@ import copy
 import cv2
 import mediapipe as mp
 
-from score_rula import calculate_rula, pulse
+from .score_rula import *
 
 score_pulse_r = 0
 score_pulse_l = 0
@@ -174,8 +174,8 @@ def draw_hand_landmarks(
     finger_mcp_x, finger_mcp_y = get_hand_landmark_position_pixels(landmarks, idx_finger_mcp, frame)
     pinky_mcp_x, pinky_mcp_y = get_hand_landmark_position_pixels(landmarks, idx_pinky_mcp, frame)
 
-    score_pulse_r = pulse(wrist_x, wrist_y, finger_mcp_x, finger_mcp_y, pinky_mcp_x, pinky_mcp_y)
-    score_pulse_l = pulse(wrist_x, wrist_y, finger_mcp_x, finger_mcp_y, pinky_mcp_x, pinky_mcp_y)
+    score_pulse_r = pulse(wrist_x, wrist_y, finger_mcp_x, finger_mcp_y, pinky_mcp_x, pinky_mcp_y, 0)
+    score_pulse_l = pulse(wrist_x, wrist_y, finger_mcp_x, finger_mcp_y, pinky_mcp_x, pinky_mcp_y, 1)
 
 
     # Desenha os landmarks na imagem
@@ -218,57 +218,40 @@ def draw_arm_angles(frame, pose_processor, pose_landmarks):
         idx_shoulder_r, idx_elbow_r = 11, 13
         idx_shoulder_l, idx_elbow_l = 12, 14
         idx_wrist_l, idx_wrist_r = 16, 15
-        idx_nose = 0
+        idx_hip_r, idx_hip_l = 23,24
+
+        wrist_l = pose_landmarks[idx_wrist_l]
+        wrist_r =  pose_landmarks[idx_wrist_r]
+        shoulder_r = pose_landmarks[idx_shoulder_r]
+        shoulder_l = pose_landmarks[idx_shoulder_l]
+        elbow_l = pose_landmarks[idx_elbow_l]
+        elbow_r =  pose_landmarks[idx_elbow_r]
+        hip_r = pose_landmarks[idx_hip_r]
+        hip_l = pose_landmarks[idx_hip_l]
+        
+        rula_shoulder_r = shoulder_elevated(shoulder_l.y, shoulder_r.y, 0)
+        rula_shoulder_l = shoulder_elevated(shoulder_l.y, shoulder_r.y, 1)
+        rula_abducted_l = shoulder_abducted(shoulder_l.y, elbow_l.y)
+        rula_abducted_r = shoulder_abducted(shoulder_r.y, elbow_r.y)
+        rular_arm_supported = arm_supported(wrist_l.y, elbow_l.y, shoulder_l.y)
+        rula_forearm_l = forearm(shoulder_l.x, shoulder_r.x, wrist_l.x, elbow_l.x, 1)
+        rula_forearm_l = forearm(shoulder_l.x, shoulder_r.x, wrist_r.x, elbow_r.x, 0)
+
 
         #Calculo RULA lado direito
         rula_right = calculate_rula(
             angle_right,
             pose_landmarks[idx_elbow_r].y,
             pose_landmarks[idx_shoulder_r].y,
-            pose_landmarks[idx_nose].y,
-            pose_landmarks[idx_wrist_r].y,
         ) + score_pulse_r
-
-        shoulder_elevated_right = (
-            pose_landmarks[idx_shoulder_r].y - pose_landmarks[idx_nose].y
-        ) < 25 and pose_landmarks[idx_nose].y < 270
-
-        shoulder_abducted_right = (
-            pose_landmarks[idx_elbow_r].y
-        ) == pose_landmarks[idx_shoulder_r].y or pose_landmarks[
-            idx_elbow_r
-        ].y < pose_landmarks[
-            idx_shoulder_r
-        ].y
-
-        arm_supported_r = (
-            pose_landmarks[idx_wrist_r].y > 450 and not shoulder_abducted_right
-        )
 
         #Calculo RULA lado esquerdo
         rula_left = calculate_rula(
             angle_left,
             pose_landmarks[idx_elbow_l].y,
             pose_landmarks[idx_shoulder_l].y,
-            pose_landmarks[idx_nose].y,
-            pose_landmarks[idx_wrist_l].y,
         ) + score_pulse_l
 
-        shoulder_elevated_left = (
-            pose_landmarks[idx_shoulder_l].y - pose_landmarks[idx_nose].y
-        ) < 25 and pose_landmarks[idx_nose].y < 270
-
-        shoulder_abducted_left = (
-            pose_landmarks[idx_elbow_l].y
-        ) == pose_landmarks[idx_shoulder_l].y or pose_landmarks[
-            idx_elbow_l
-        ].y < pose_landmarks[
-            idx_shoulder_l
-        ].y
-
-        arm_supported_l = (
-            pose_landmarks[idx_wrist_l].y > 450 and not shoulder_abducted_left
-        )
 
         #Config Texto
         font_scale = 0.8
@@ -308,67 +291,7 @@ def draw_arm_angles(frame, pose_processor, pose_landmarks):
             text_color=(0, 255, 0),
         )
 
-        # Mensagem de Alerta para Ombro Elevado
-        if shoulder_elevated_right:
-            payload_response[2] = 1
-            draw_text(
-                frame,
-                "Ombro Direito Elevado!",
-                (margin + 300, h - 60),
-                font_scale=0.5,
-                text_color=(0, 0, 255),
-            )
-        if shoulder_elevated_left:
-            payload_response[7] = 1
-            draw_text(
-                frame,
-                "Ombro Esquerdo Elevado!",
-                (margin + 300, h - 30),
-                font_scale=0.5,
-                text_color=(0, 0, 255),
-            )
-
-        # Mensagem de Alerta para Ombro Abduzido
-        if shoulder_abducted_right:
-            payload_response[1] = 1
-            draw_text(
-                frame,
-                "Ombro Direito Abduzido!",
-                (margin, h - 60),
-                font_scale=0.5,
-                text_color=(0, 0, 255),
-            )
-        if shoulder_abducted_left:
-            payload_response[6] = 1
-            draw_text(
-                frame,
-                "Ombro Esquerdo Abduzido!",
-                (margin, h - 30),
-                font_scale=0.5,
-                text_color=(0, 0, 255),
-            )
-
-        #Mensagem Alerta para Braço Apoiado
-        if arm_supported_l:
-            payload_response[8] = 1
-            draw_text(
-                frame,
-                "Braço Esquerdo Apoiado!",
-                (margin, h - 80),
-                font_scale=0.5,
-                text_color=(0, 0, 255),
-            )
-        if arm_supported_r:
-            payload_response[3] = 1
-            draw_text(
-                frame,
-                "Braço Direito Apoiado!",
-                (margin, h - 100),
-                font_scale=0.5,
-                text_color=(0, 0, 255),
-            )
-        return payload_response
-
+        
     except Exception as e:
         font_scale = 0.8
         thickness = 2

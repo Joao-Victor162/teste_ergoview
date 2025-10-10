@@ -4,45 +4,11 @@ def calculate_rula(
     angle: float,
     elbow_y: float,
     shoulder_y: float,
-    nose_y: float,
-    wrist_y: float,
 ) -> int:
     """
     Calcula a pontuação RULA com base no ângulo do cotovelo e posições relativas do braço e ombro.
-
-    A pontuação considera:
-    - Ângulo do braço (ombro-cotovelo-pulso)
-    - Correção para braço abaixado (posição de "sentido")
-    - Ajustes para ombro elevado e ombro abduzido
-
-    Parâmetros
-    ----------
-    angle : float
-        Ângulo entre ombro, cotovelo e pulso.
-    elbow_y : float
-        Coordenada Y do cotovelo.
-    shoulder_y : float
-        Coordenada Y do ombro.
-    nose_y : float
-        Coordenada Y do nariz.
-
-    Retorna
-    -------
-    int
-        Pontuação RULA calculada.
-
-    Exemplos
-    --------
-    >>> calculate_rula(160, 1.0, 1.5, 1.3)
-    1
-    >>> calculate_rula(160, 2.0, 1.5, 1.3)
-    4
-    >>> calculate_rula(90, 2.0, 1.5, 1.3)
-    2
-    >>> calculate_rula(50, 2.0, 1.5, 1.3)
-    1
     """
-    # Determina pontuação base pelo ângulo
+
     if angle >= 150:
         score = 4
     elif angle >= 100:
@@ -56,27 +22,140 @@ def calculate_rula(
     if angle >= 150 and elbow_y > shoulder_y:
         return 1
 
-    # Ajustes adicionais
-    extra_points = 0
+    return score
 
-    raised_shoulder = 0
-    abducted_shoulder = 0
 
-    # Ombro elevado: se o ombro estiver muito próximo do nariz
-    if (shoulder_y - nose_y) < 25 and shoulder_y < 270:
-        raised_shoulder = 1
+# ==============================
+# ESTADO GLOBAL DE REPETIÇÕES
+# ==============================
+movement_states = {
+    "abducted": {
+        "rep_counter": 0,
+        "bonus_given": False,
+        "in_motion": False,
+        "first_point_given": False,
+        "cooldown_counter": 0,
+    },
+    "elevated": {
+        "rep_counter": 0,
+        "bonus_given": False,
+        "in_motion": False,
+        "first_point_given": False,
+        "cooldown_counter": 0,
+        "history": [],
+    },
+    "supported": {
+        "rep_counter": 0,
+        "bonus_given": False,
+        "in_motion": False,
+        "first_point_given": False,
+        "cooldown_counter": 0,
+    },
+    "forearm": {
+        "rep_counter": 0,
+        "bonus_given": False,
+        "in_motion": False,
+        "first_point_given": False,
+        "cooldown_counter": 0,
+    },
+    "pulse": {
+        "rep_counter": 0,
+        "bonus_given": False,
+        "in_motion": False,
+        "first_point_given": False,
+        "cooldown_counter": 0,
+    },
+}
 
-        extra_points += 1
+COOLDOWN_FRAMES = 5  # frames de segurança
 
-    # Ombro abduzido: se o cotovelo estiver na mesma altura ou acima do ombro
-    if elbow_y <= shoulder_y:
-        abducted_shoulder = 1
-        extra_points += 1
 
-    if wrist_y > 450 and elbow_y >= shoulder_y:
-        extra_points += 1
+# ==============================
+# FUNÇÃO BASE PARA REPETIÇÃO
+# ==============================
+def process_repetition(movement: str, condition_up: bool) -> int:
+    """
+    Lógica genérica de detecção de movimentos repetitivos.
+    - Ponto inicial na primeira subida
+    - Ciclo completo = subida + descida (com cooldown)
+    - Ponto extra após 4 ciclos
+    """
+    state = movement_states[movement]
+    score = 0
 
-    return score + extra_points
+    # SUBIDA
+    if condition_up and not state["in_motion"]:
+        state["in_motion"] = True
+
+        if not state["first_point_given"]:
+            score += 1
+            state["first_point_given"] = True
+
+        state["cooldown_counter"] = 0
+
+    # DESCIDA
+    elif not condition_up and state["in_motion"]:
+        state["cooldown_counter"] += 1
+
+        if state["cooldown_counter"] >= COOLDOWN_FRAMES:
+            state["in_motion"] = False
+            state["rep_counter"] += 1
+            state["cooldown_counter"] = 0
+
+            if state["rep_counter"] >= 4 and not state["bonus_given"]:
+                score += 1
+                state["bonus_given"] = True
+
+    # RESET cooldown se parado
+    else:
+        state["cooldown_counter"] = 0
+
+    return score
+
+
+# ==============================
+# MOVIMENTOS ESPECÍFICOS
+# ==============================
+def shoulder_abducted(shoulder: float, elbow: float) -> int:
+    condition_up = elbow <= shoulder
+    return process_repetition("abducted", condition_up)
+
+
+def shoulder_elevated(shoulder_l: float, shoulder_r: float, side: int = 0,
+                      tolerance: float = 30) -> int:
+    state = movement_states["elevated"]
+
+    shoulder_y = shoulder_r if side == 0 else shoulder_l
+    state["history"].append(shoulder_y)
+
+    if len(state["history"]) > 5:
+        state["history"].pop(0)
+
+    if len(state["history"]) < 2:
+        return 0
+
+    diff = abs(state["history"][-2] - state["history"][-1])
+    condition_up = diff > tolerance
+
+    return process_repetition("elevated", condition_up)
+
+
+def arm_supported(wrist: float, elbow: float, shoulder: float) -> int: 
+    condition_up = (wrist > 450 and elbow > shoulder)
+    return process_repetition("supported", condition_up)
+
+
+def forearm(shoulder_l: float, shoulder_r: float, wrist: float, elbow: float,
+            side: int) -> int:
+    central_point = (shoulder_l + shoulder_r) / 2
+
+    if side == 0:  # braço direito
+        condition_up = (elbow < central_point or wrist < central_point)
+    else:  # braço esquerdo
+        condition_up = (elbow > central_point or wrist > central_point)
+
+    return process_repetition("forearm", condition_up)
+
 
 def pulse(
     wrist_x: float,
@@ -85,65 +164,15 @@ def pulse(
     finger_mcp_y: float,
     pinky_mcp_x: float,
     pinky_mcp_y: float,
+    side: int,
 ) -> int:
-    """
-    Avalia a postura do punho com base em coordenadas em pixels da imagem.
-    Calcula flexão/extensão, desvio radial/ulnar e rotação (supinação/pronação),
-    e imprime os resultados com os ângulos e pontuação final.
-    """
-
-    score = 0
-
-    # Vetores (em pixels)
     vetor_mcp = np.array([pinky_mcp_x, pinky_mcp_y]) - np.array([finger_mcp_x, finger_mcp_y])
     vetor_palma = np.array([wrist_x, wrist_y]) - np.array([finger_mcp_x, finger_mcp_y])
 
-    # ----- 1. Flexão / Extensão -----
-    eixo_vertical = np.array([0, -1])  # eixo "para cima" (menores valores de Y)
-    angulo_rad = np.arccos(
-        np.dot(vetor_palma, eixo_vertical) / (np.linalg.norm(vetor_palma))
-    )
+    eixo_vertical = np.array([0, -1])
+    angulo_rad = np.arccos(np.dot(vetor_palma, eixo_vertical) / np.linalg.norm(vetor_palma))
     angulo_flex = abs(np.degrees(angulo_rad) - 160)
 
-    #print(f"[Flexão] Ângulo: {angulo_flex:.2f}°")
+    condition_up = angulo_flex > 15  # considera repetição se punho muito fletido/estendido
 
-    if angulo_flex <= 2:
-        #print("→ Postura neutra (0°) → +1 ponto")
-        score += 1
-    elif 2 < angulo_flex <= 15:
-        #print("→ Flexão leve (≤15°) → +2 pontos")
-        score += 2
-    else:
-        #print("→ Flexão acentuada (>15°) → +3 pontos")
-        score += 3
-
-    # ----- 2. Desvio radial/ulnar (horizontal) -----
-    #print(f"[Desvio] wrist_x: {wrist_x:.1f}, finger_mcp_x: {finger_mcp_x:.1f}, pinky_mcp_x: {pinky_mcp_x:.1f}")
-    if wrist_x < finger_mcp_x:
-        #print("→ Desvio ulnar → +1 ponto")
-        score += 1
-    elif wrist_x > pinky_mcp_x:
-        #print("→ Desvio radial → +1 ponto")
-        score += 1
-    #else:
-        #print("→ Sem desvio → +0 ponto")
-
-    # ----- 3. Giro (supinação / pronação) -----
-    eixo_horizontal = np.array([1, 0])
-    angulo_rotacao_rad = np.arccos(
-        np.dot(vetor_mcp, eixo_horizontal) / (np.linalg.norm(vetor_mcp))
-    )
-    angulo_rotacao = np.degrees(angulo_rotacao_rad)
-
-    #print(f"[Rotação] Ângulo palma (5–17): {angulo_rotacao:.2f}°")
-
-    if 10 < angulo_rotacao < 170:
-        #print("→ Supinação ou pronação → +2 pontos")
-        score += 2
-    #elif angulo_rotacao < 10:
-        #print("→ Giro neutro (palma lateral) → +1 ponto")
-    #else:
-        #print("Ponto neutro")
-
-    #print(f"★ Pontuação total do punho: {score}\n")
-    return score
+    return process_repetition("pulse", condition_up)
