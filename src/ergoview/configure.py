@@ -3,7 +3,7 @@ import copy
 import cv2
 import mediapipe as mp
 
-from .score_rula import *
+from score_rula import *
 
 score_pulse_r = 0
 score_pulse_l = 0
