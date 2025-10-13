@@ -137,9 +137,9 @@ def calibration_cam(index_cam):
     try:
         count_frames = 0
         if index_cam == 7:
-            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(0)
         else:
-            cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
+            cap = cv2.VideoCapture(index_cam)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         cap.set(cv2.CAP_PROP_FPS, 30)
@@ -175,7 +175,7 @@ def calibration_cam(index_cam):
 
 
 def create_stack_frames(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(index_cam)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
