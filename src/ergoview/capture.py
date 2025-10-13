@@ -272,6 +272,102 @@ class PoseProcessorYOLO:
                     boxes.append((x, y, w, h))
         return boxes
 
+    @staticmethod
+    def calibration_camera(pose_results, hand_results, vis_threshold=0.7):
+        """
+        Verifica se os pontos críticos para RULA e Pulse estão visíveis.
+        Retorna dicionários com flags 0/1 para cada ponto,
+        mais indicadores gerais (pose e mãos) e sugestões.
+        """
+        # ---------------------------
+        # POSE
+        # ---------------------------
+        pose_idxs = {
+            11: "Ombro Esquerdo",
+            12: "Ombro Direito",
+            14: "Cotovelo Esquerdo",
+            13: "Cotovelo Direito",
+            15: "Punho Direito",
+            16: "Punho Esquerdo",
+            23: "Quadril Direito",
+            24: "Quadril Esquerdo",
+        }
+
+        pose_status = {}
+        if pose_results and pose_results.pose_landmarks:
+            for idx, name in pose_idxs.items():
+                lm = pose_results.pose_landmarks.landmark[idx]
+                pose_status[name] = 1 if lm.visibility >= vis_threshold else 0
+        else:
+            for name in pose_idxs.values():
+                pose_status[name] = 0
+
+        all_pose_ok = 1 if all(v == 1 for v in pose_status.values()) else 0
+
+        # ---------------------------
+        # MÃOS
+        # ---------------------------
+        hand_idxs = {
+            0: "Punho Mão",
+            5: "Dedo Indicador",
+            17: "Dedo Mindinho",
+        }
+
+        # Inicializa as duas mãos como "não detectadas"
+        hands_status = {
+            "Esquerda": {name: 0 for name in hand_idxs.values()},
+            "Direita": {name: 0 for name in hand_idxs.values()}
+        }
+
+        if hand_results and hand_results.multi_hand_landmarks and hand_results.multi_handedness:
+            for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks, hand_results.multi_handedness):
+                label = handedness.classification[0].label  # "Left" ou "Right"
+                lado = "Esquerda" if label == "Left" else "Direita"
+
+                for idx, name in hand_idxs.items():
+                    if idx >= len(hand_landmarks.landmark):
+                        hands_status[lado][name] = 0
+                    else:
+                        lm = hand_landmarks.landmark[idx]
+                        hands_status[lado][name] = 1 if (0 <= lm.x <= 1 and 0 <= lm.y <= 1) else 0
+
+        left_hand_ok = 1 if all(v == 1 for v in hands_status["Esquerda"].values()) else 0
+        right_hand_ok = 1 if all(v == 1 for v in hands_status["Direita"].values()) else 0
+        all_hand_ok = 1 if (left_hand_ok == 1 and right_hand_ok == 1) else 0
+
+        # ---------------------------
+        # SUGESTÕES
+        # ---------------------------
+        sugestoes_pose = []
+        sugestoes_hand = []
+
+        for point, status in pose_status.items():
+            if status == 0:
+                if "Esquerdo" in point:
+                    sugestoes_pose.append(
+                        f"Ajuste a câmera para a esquerda ou centralize o corpo para mostrar {point}.")
+                elif "Direito" in point:
+                    sugestoes_pose.append(f"Ajuste a câmera para a direita ou centralize o corpo para mostrar {point}.")
+
+        for lado, pontos in hands_status.items():
+            for point, status in pontos.items():
+                if status == 0:
+                    sugestoes_hand.append(f"Ajuste posição da mão {lado.lower()} para mostrar {point}.")
+
+        if all_pose_ok:
+            sugestoes_pose.append("Calibração OK: todos os pontos do corpo detectados.")
+        if all_hand_ok:
+            sugestoes_hand.append("Calibração OK: ambas as mãos detectadas e calibradas.")
+
+        return (
+            pose_status,
+            all_pose_ok,
+            sugestoes_pose,
+            hands_status,
+            all_hand_ok,
+            sugestoes_hand,
+        )
+
     def process_frame(self, frame):
         mp_pose = self.pose_processor.mp_pose
         mp_hands = self.pose_processor.mp_hands
@@ -288,8 +384,20 @@ class PoseProcessorYOLO:
         hand_results = hands.process(image)
         pose_results = pose.process(image)
 
-        hand_landmarks_list = []
+        # Checa calibração
+        ps, apo, sp, hs, aho, sh = self.calibration_camera(pose_results, hand_results)
 
+
+        if ps:
+            print(ps)
+        #if(apo):
+            print(apo)
+        #for s in sh:
+            #print(s)
+            #pass
+
+
+        hand_landmarks_list = []
         if hand_results.multi_hand_landmarks and hand_results.multi_handedness:
             for hand_index, (hand_landmark, handedness) in enumerate(
                 zip(
@@ -309,6 +417,7 @@ class PoseProcessorYOLO:
                 hand_side = handedness.classification[0].label
                 hand_obj = Landmarks(filtered_hand_landmarks, side=hand_side)
                 hand_landmarks_list.append(hand_obj)
+
             for hand_landmark in hand_results.multi_hand_landmarks:
                 self.draw_hand_landmarks(frame, hand_landmark, mp_hands)
 
@@ -339,13 +448,14 @@ class PoseProcessorYOLO:
             self.draw_pose_without_hands(
                 frame, pose_results.pose_landmarks, mp_pose
             )
+            self.draw_arm_angles(
+                frame, self.pose_processor, filtered_pose_landmarks
+            )
             self.payload_response = self.draw_arm_angles(
                 frame, self.pose_processor, filtered_pose_landmarks
             )
 
-            #print(f"payload_response{payload_response}")
-
-        return frame, hand_landmarks_list, filtered_pose_landmarks, self.payload_response
+        return frame, hand_landmarks_list, filtered_pose_landmarks, self.payload_response, ps, hs
 
 
 def detect_person(frame, net, classes, output_layers, conf_threshold=0.5):

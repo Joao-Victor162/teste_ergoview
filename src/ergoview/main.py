@@ -132,6 +132,47 @@ def count_hall_method(count_moviments):
     return hall_effort
 """
 
+def calibration_cam(index_cam):
+    global cap
+    try:
+        count_frames = 0
+        if index_cam == 7:
+            cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        while True:
+            ret, frame = cap.read()
+            frame = cv2.flip(frame, 1)
+            count_frames += 1
+            if not cap.isOpened():
+                print(f'Não foi possível acessar a câmera no índice {0}.')
+                return
+            if count_frames == 5 and index_cam == 0:
+                cap.release()
+                return ps
+            if count_frames == 5 and index_cam == 1:
+                cap.release()
+                return hs
+            if count_frames == 5 and index_cam == 7:
+                cap.release()
+                return ps, hs
+
+            pose_processor = PoseProcessor(filter_type='ema', alpha=0.3)
+            net, classes, output_layers = load_yolo()
+            processor = PoseProcessorYOLO(pose_processor, net, classes, output_layers)
+            _, _, _, _, ps, hs = processor.process_frame(frame)
+            #print(f'poses calibration: {ps}')
+            print(f'hands calibration: {hs}')
+
+    except Exception as e:
+        return e
+
+
 
 def create_stack_frames(index_cam: int, limit_frames: int):
     cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
@@ -194,7 +235,7 @@ def consumer_and_apply_rula_processing():
                 break
 
             texts_to_display = []
-            processed_frame, hand_landmarks_list, _, payload_response = processor.process_frame(frames)
+            processed_frame, hand_landmarks_list, _, payload_response, ps = processor.process_frame(frames)
             print(f"handmark_list: {hand_landmarks_list}")
 
             if hand_landmarks_list:
@@ -378,7 +419,6 @@ def start_record():
             thread_convert_for_avif.start()
             thread_upload_images_minio.start()
             thread_template_payload.start()
-            #thread.join()
 
             return jsonify({
                 "status":"sucesso",
@@ -389,9 +429,30 @@ def start_record():
     except Exception as e:
         return jsonify({"erro": e }), 500
 
-@app.route("/api/calibration")
+@app.route("/api/calibration", methods=["POST"])
 def calibration():
-    return jsonify({"mesage":"sucess"})
+    try:
+
+        dados_payload = request.get_json()
+        if not dados_payload:
+            return jsonify({
+                "status": "erro",
+                "message": "Corpo da requisição JSON ausente",
+            }), 400
+
+        index_cam = int(dados_payload.get('index_cam'))
+        if index_cam == 0:
+            pose_points = calibration_cam(index_cam)
+            return jsonify({"message":"calibration complete", "pose_points":pose_points})
+        if index_cam == 1:
+            hand_points = calibration_cam(index_cam)
+            return jsonify({"message":"calibration complete", "hand_points":hand_points})
+        if index_cam == 7:
+            pose_points, hand_points = calibration_cam(index_cam)
+            return jsonify({"message":"calibration complete", "pose_points":pose_points, "hand_points":hand_points})
+
+    except Exception as e:
+        return jsonify({"error":e})
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

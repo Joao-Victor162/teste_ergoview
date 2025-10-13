@@ -228,7 +228,7 @@ def draw_arm_angles(frame, pose_processor, pose_landmarks):
         elbow_r =  pose_landmarks[idx_elbow_r]
         hip_r = pose_landmarks[idx_hip_r]
         hip_l = pose_landmarks[idx_hip_l]
-        
+
         rula_shoulder_r = shoulder_elevated(shoulder_l.y, shoulder_r.y, 0)
         rula_shoulder_l = shoulder_elevated(shoulder_l.y, shoulder_r.y, 1)
         rula_abducted_l = shoulder_abducted(shoulder_l.y, elbow_l.y)
@@ -291,7 +291,7 @@ def draw_arm_angles(frame, pose_processor, pose_landmarks):
             text_color=(0, 255, 0),
         )
 
-        
+
     except Exception as e:
         font_scale = 0.8
         thickness = 2
