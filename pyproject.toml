@@ -1,0 +1,28 @@
+[project]
+name = "ergoview"
+version = "0.1.0"
+description = "Projeto de visão computacional"
+authors = [{ name = "IA Team", email = "iateam@email.com" }]
+requires-python = ">=3.9,<3.11"
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.8",
+    "mediapipe>=0.10.21",
+    "pre-commit>=4.1",
+    "pytest>=8.3.4",
+    "ruff>=0.9.5",
+    "sphinx>=7.2.6",
+    "isort>=6.0.1",
+    "mypy>=1.10.0"
+]
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.black]
+line-length = 79
+skip-string-normalization = true
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"

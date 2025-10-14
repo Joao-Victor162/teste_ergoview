@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calibração de Corpo Humano</title>
+    <style>
+        /* Estilos para o layout geral */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* Estilos para o boneco do jogo da forca */
+        .stickman-container {
+            position: relative;
+            width: 200px;
+            height: 400px;
+            margin: 0 auto;
+            border: 2px solid #333;
+            border-radius: 10px;
+            background-color: #fff;
+            padding-top: 10px;
+        }
+
+        /* Cabeça */
+        .head {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            position: absolute;
+            top: 10px;
+            left: 80px;
+        }
+
+        /* Corpo */
+        .body {
+            width: 4px;
+            height: 100px;
+            background-color: #333;
+            position: absolute;
+            top: 55px;
+            left: 98px;
+        }
+
+        /* Braços */
+        .arm-left, .arm-right {
+            width: 70px;
+            height: 4px;
+            background-color: #333;
+            position: absolute;
+            top: 90px;
+        }
+
+        .arm-left {
+            left: 25px;
+            transform: rotate(45deg);
+        }
+
+        .arm-right {
+            right: 25px;
+            transform: rotate(-45deg);
+        }
+
+        /* Pernas */
+        .leg-left, .leg-right {
+            width: 70px;
+            height: 4px;
+            background-color: #333;
+            position: absolute;
+            top: 170px;
+        }
+
+        .leg-left {
+            left: 30px;
+            transform: rotate(45deg);
+        }
+
+        .leg-right {
+            right: 30px;
+            transform: rotate(-45deg);
+        }
+
+        /* Pontos para calibração (verde ou vermelho) */
+        .point {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: gray;
+            position: absolute;
+        }
+
+        /* Mapear os pontos */
+        .left-shoulder { top: 50px; left: 65px; }
+        .right-shoulder { top: 50px; left: 135px; }
+        .left-elbow { top: 100px; left: 40px; }
+        .right-elbow { top: 100px; left: 160px; }
+        .left-wrist { top: 150px; left: 30px; }
+        .right-wrist { top: 150px; left: 170px; }
+        .left-hip { top: 250px; left: 65px; }
+        .right-hip { top: 250px; left: 135px; }
+
+        /* Estilos para o status e o botão */
+        #statusMessage {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        select, button {
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Calibração do Corpo Humano</h1>
+
+        <!-- Select para escolher o índice da câmera -->
+        <label for="cameraIndex">Selecione o índice da câmera:</label>
+        <select id="cameraIndex">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="7">7</option>
+        </select>
+
+        <!-- Boneco estilo Jogo da Forca -->
+        <div class="stickman-container">
+            <div class="head"></div>
+            <div class="body"></div>
+            <div class="arm-left"></div>
+            <div class="arm-right"></div>
+            <div class="leg-left"></div>
+            <div class="leg-right"></div>
+
+            <!-- Pontos do corpo para calibração -->
+            <div class="point left-shoulder"></div>
+            <div class="point right-shoulder"></div>
+            <div class="point left-elbow"></div>
+            <div class="point right-elbow"></div>
+            <div class="point left-wrist"></div>
+            <div class="point right-wrist"></div>
+            <div class="point left-hip"></div>
+            <div class="point right-hip"></div>
+        </div>
+
+        <button id="calibrateButton">Calibrar</button>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <script>
+        document.getElementById('calibrateButton').addEventListener('click', async function() {
+            const cameraIndex = document.getElementById('cameraIndex').value;
+
+            try {
+                // Envia a requisição para o backend
+                const response = await fetch('http://localhost:5000/api/calibration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        index_cam: cameraIndex
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Caso a calibração tenha sido realizada com sucesso
+                    const posePoints = data.pose_points;
+                    updateBodyPoints(posePoints);
+                    document.getElementById('statusMessage').innerText = 'Calibração concluída com sucesso!';
+                } else {
+                    // Caso tenha ocorrido um erro
+                    document.getElementById('statusMessage').innerText = `Erro: ${data.message || 'Erro desconhecido'}`;
+                }
+            } catch (error) {
+                document.getElementById('statusMessage').innerText = `Erro ao comunicar com a API: ${error.message}`;
+            }
+        });
+
+        // Função para atualizar os pontos no corpo humano
+        function updateBodyPoints(posePoints) {
+            // Mapeia os pontos do corpo para os ids dos elementos HTML
+            const pointsMapping = {
+                "Ombro Esquerdo": "left-shoulder",
+                "Ombro Direito": "right-shoulder",
+                "Cotovelo Esquerdo": "left-elbow",
+                "Cotovelo Direito": "right-elbow",
+                "Punho Esquerdo": "left-wrist",
+                "Punho Direito": "right-wrist",
+                "Quadril Esquerdo": "left-hip",
+                "Quadril Direito": "right-hip"
+            };
+
+            // Itera sobre os pontos e atualiza as cores
+            for (const point in posePoints) {
+                const pointElement = document.querySelector(`.${pointsMapping[point]}`);
+                if (posePoints[point] === 1) {
+                    pointElement.style.backgroundColor = 'green'; // Verde para calibrado
+                } else {
+                    pointElement.style.backgroundColor = 'red'; // Vermelho para não calibrado
+                }
+            }
+        }
+    </script>
+</body>
+</html>
