@@ -135,13 +135,9 @@ def count_hall_method(count_moviments):
 """
 
 def calibration_cam(index_cam):
-    cap_calibration = None
     try:
         count_frames = 0
-        if index_cam == 7:
-            cap_calibration = cv2.VideoCapture(0, cv2.CAP_V4L2)
-        else:
-            cap_calibration = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)
+        cap_calibration = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
 
         cap_calibration.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap_calibration.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -192,7 +188,7 @@ def calibration_cam(index_cam):
 
 
 def create_stack_frames(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)
+    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -238,7 +234,7 @@ def create_stack_frames(index_cam: int, limit_frames: int):
             continue
 
 def create_stack_frames_for_ml(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)#apagar esse cara quando estiver no linux
+    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)#apagar esse cara quando estiver no linux
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -529,7 +525,8 @@ def start_record():
 @app.route("/api/calibration", methods=["POST"])
 def calibration():
     try:
-
+        pose_points = None
+        hand_points = None
         dados_payload = request.get_json()
         if not dados_payload:
             return jsonify({
@@ -537,33 +534,60 @@ def calibration():
                 "message": "Corpo da requisição JSON ausente",
             }), 400
 
-        index_cam = int(dados_payload.get('index_cam'))
-        if index_cam == 0:
-            pose_points = calibration_cam(index_cam)
-            return jsonify({"message":"calibration complete", "pose_points":pose_points})
-        if index_cam >= 1 and index_cam != 7:
-            hand_points = calibration_cam(index_cam)
-            return jsonify({"message":"calibration complete", "hand_points":hand_points})
-        if index_cam == 7:
-            pose_points, hand_points = calibration_cam(index_cam)
-            return jsonify({"message":"calibration complete", "pose_points":pose_points, "hand_points":hand_points})
+        index_cam = dados_payload.get('index_cam')
+        if len(index_cam) > 1:
+            for key, value in index_cam.items():
+                print(f"Index da câmera {key}: {value}")
+                results = calibration_cam(value)
+                print(f"results: {results}")
+                if key == "0":
+                    pose_points = results
+                    print(f"pose points: {pose_points}")
+                elif key == "1":
+                    hand_points = results
+            return jsonify({
+                "message": "calibration complete",
+                "pose_points": pose_points,
+                "hand_points": hand_points
+            })
+        else:
+            for key, value in index_cam.items():
+                results = calibration_cam(value)
+                if key == "0":
+                    pose_points = results
+
+                    return jsonify({
+                        "message": "calibration complete",
+                        "pose_points": pose_points
+                    })
+
+                else:
+                    hand_points = results
+
+                    return jsonify({
+                        "message": "calibration complete",
+                        "hand_points": hand_points
+                    })
+
 
     except Exception as e:
         return jsonify({"error":e})
 
 @app.route("/api/get_list_cameras", methods=["GET"])
 def get_list_cams():
-    list_of_cams = []
+    list_of_cams = {}
+    count_index = 0
     try:
         for index in range(7):
             cap_list_cam = cv2.VideoCapture(index)
             if cap_list_cam.isOpened():
-                list_of_cams.append(index)
+                list_of_cams.update({count_index:index})
+                count_index += 1
                 print(f"Câmera encontrada no índice: {index}")
                 cap_list_cam.release()
             else:
                 print(f"Nenhuma câmera encontrada no índice: {index}")
-        return jsonify({"data":list_of_cams})
+        return jsonify(list_of_cams)
     except Exception as e:
         return jsonify({"error":e})
 
