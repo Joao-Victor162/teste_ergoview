@@ -290,6 +290,7 @@ def draw_arm_angles(frame, pose_processor, pose_landmarks):
             thickness=thickness,
             text_color=(0, 255, 0),
         )
+        return payload_response
 
 
     except Exception as e:

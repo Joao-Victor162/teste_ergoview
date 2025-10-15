@@ -25,6 +25,7 @@ stack_frames_rula = queue.Queue(maxsize=500)
 stack_frames_ml = queue.Queue(maxsize=500)
 stack_frames_hall = queue.Queue(maxsize=500)
 stack_frames_avif = queue.Queue(maxsize=500)
+stack_frames_avif_hands = queue.Queue(maxsize=500)
 stacks_ids_minio = queue.Queue(maxsize=500)
 stacks_ids_minio_hands = queue.Queue(maxsize=500)
 stack_payload_template = queue.Queue(maxsize=500)
@@ -87,12 +88,20 @@ def create_data_point(payload_response, payload_hand_count, id_monitoramento, ob
             "rula_score_final_esquerdo": str(payload_response[26]),
             "frame_rula": objectKey,
             "movimentos_maos": {
-                "manejo_grosseiro": str(payload_hand_count[1]),
-                "frame_manejo_grosseiro": objectKey,
-                "pinca": str(payload_hand_count[2]),
-                "frame_pinca": objectKey,
-                "mao_aberta": str(payload_hand_count[0]),
-                "frame_mao_aberta": objectKey
+                "manejo_grosseiro_esquerdo": str(payload_hand_count[1]),
+                "frame_manejo_grosseiro_esquerdo": objectKey,
+                "pinca_esquerdo": str(payload_hand_count[2]),
+                "frame_pinca_esquerdo": objectKey,
+                "mao_aberta_esquerdo": str(payload_hand_count[0]),
+                "frame_mao_aberta_esquerdo": objectKey,
+                "manejo_grosseiro_direito": str(payload_hand_count[1]),
+                "frame_manejo_grosseiro_direito": objectKey,
+                "pinca_direito": str(payload_hand_count[2]),
+                "frame_pinca_direito": objectKey,
+                "mao_aberta_direito": str(payload_hand_count[0]),
+                "frame_mao_aberta_direito": objectKey,
+                "esforco":4,
+                "peso":5
                 #campo esforço: somar movimentos total + campo peso de acordo com o movimento
                 #campo peso: 0 - mao aberta; 5 pinça, 8 - manejo grosseiro
             }
@@ -137,7 +146,7 @@ def count_hall_method(count_moviments):
 def calibration_cam(index_cam):
     try:
         count_frames = 0
-        cap_calibration = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)
+        cap_calibration = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
 
         cap_calibration.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap_calibration.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -173,13 +182,6 @@ def calibration_cam(index_cam):
                         return None
                     return hs
 
-                elif index_cam == 7:
-                    _, _, _, _, ps, hs = processor.process_frame(frame)
-                    cap_calibration.release()
-                    if ps is None or hs is None:
-                        return None
-                    return ps, hs
-
     except Exception as e:
         print(f'Erro na calibração: {str(e)}')
         cap_calibration.release()
@@ -188,7 +190,7 @@ def calibration_cam(index_cam):
 
 
 def create_stack_frames(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)
+    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -212,7 +214,7 @@ def create_stack_frames(index_cam: int, limit_frames: int):
             #stack_frames_for_ml.put(frame)
             stack_frames_for_avif.put(frame)
             count_frames += 1
-            print(f"Frames: {count_frames}")
+            print(f"Frames_pilha_rula: {count_frames}")
             controller_time += control
             nex_timer = controller_time - time.time()
 
@@ -234,7 +236,7 @@ def create_stack_frames(index_cam: int, limit_frames: int):
             continue
 
 def create_stack_frames_for_ml(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)#apagar esse cara quando estiver no linux
+    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)#apagar esse cara quando estiver no linux
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -258,7 +260,7 @@ def create_stack_frames_for_ml(index_cam: int, limit_frames: int):
             stack_frames_for_ml.put(frame)
             stack_frames_for_avif_hands.put(frame)
             count_frames += 1
-            print(f"Frames: {count_frames}")
+            print(f"Frames_pilha_ml: {count_frames}")
             controller_time += control
             nex_timer = controller_time - time.time()
 
@@ -294,8 +296,9 @@ def consumer_and_apply_rula_processing():
                 break
 
             texts_to_display = []
-            processed_frame, hand_landmarks_list, _, payload_response, ps = processor.process_frame(frames)
-            print(f"handmark_list: {hand_landmarks_list}")
+            processed_frame, hand_landmarks_list, _, payload_response, ps, _ = processor.process_frame(frames)
+            #print(f"handmark_list: {hand_landmarks_list}")
+            print(f"payload_response: {payload_response}")
 
             if hand_landmarks_list:
                 start_y, line_spacing = 30, 30
@@ -341,7 +344,7 @@ def consumer_integration_ml():
                 paylaod_hand_count[1] = paylaod_hand_count[1] + 1
             if predicted_class_ml == 3:
                 paylaod_hand_count[2] = paylaod_hand_count[2] + 1
-
+            print(f"payload_hand_count: {paylaod_hand_count}")
             stack_frames_ml.put(paylaod_hand_count)
 
         except Exception as e:
@@ -352,14 +355,12 @@ def consumer_and_convert_for_avif():
     contador = 0
     while True:
         frames_rula = stack_frames_for_avif.get()
-        frames_ml = stack_frames_for_ml.get()
+        #frames_ml = stack_frames_for_avif_hands.get()
         try:
 
-            if frames_rula is None and frames_ml is None:
+            if frames_rula is None:
                 stack_frames_avif.put(None)
-                stack_frames_for_avif_hands.put(None)
                 stack_frames_rula.task_done()
-                stack_frames_for_ml.task_done()
                 break
 
             frame_rgb = cv2.cvtColor(frames_rula, cv2.COLOR_BGR2RGB)
@@ -371,13 +372,30 @@ def consumer_and_convert_for_avif():
             contador += 1
             print(f"Enviando encoded image para a pilha do avif: {contador}")
 
+        except Exception as e:
+            print(f"Error: {e}")
+
+def consumer_and_convert_for_avif_hands():
+    contador = 0
+    while True:
+        #frames_rula = stack_frames_for_avif.get()
+        frames_ml = stack_frames_for_avif_hands.get()
+        try:
+
+            if frames_ml is None:
+                #stack_frames_avif.put(None)
+                stack_frames_for_avif_hands.put(None)
+                #stack_frames_rula.task_done()
+                stack_frames_for_ml.task_done()
+                break
+
             #para as mãos, depois vou refatorar aqui para ficar coerente, por hora, apenas para validação irei deixar nesse formato repetitivo.
             frame_rgb_hands = cv2.cvtColor(frames_ml, cv2.COLOR_BGR2RGB)
             image_hands = Image.fromarray(frame_rgb_hands)
-            buffer_hands = io.BytesIO
+            buffer_hands = io.BytesIO()
             image_hands.save(buffer_hands, format="AVIF")
             encoded_image_hands = buffer_hands.getvalue()
-            stack_frames_for_avif_hands.put(encoded_image_hands)
+            stack_frames_avif_hands.put(encoded_image_hands)
 
         except Exception as e:
             print(f"Error: {e}")
@@ -386,19 +404,45 @@ def upload_frame_for_minio(id_monitoramento, bucket_name):
     contador_minio_frames = 0
     while True:
         frames_avif_bytes = stack_frames_avif.get()
-        frames_avif_bytes_hands = stack_frames_for_avif_hands.get()
         try:
-            if frames_avif_bytes is None and frames_avif_bytes_hands is None:
+            if frames_avif_bytes is None:
                 stacks_ids_minio.put(None)
-                stacks_ids_minio_hands.put(None)
                 stack_frames_avif.task_done()
-                stack_frames_for_avif_hands.task_done()
 
             directory = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             hash_input = directory.encode('utf-8')
             hash_result = hashlib.sha256(hash_input).hexdigest()[:8]
             object_name = f"{id_monitoramento}/rula/frame_{directory}_{hash_result}.avif"
             print(f"object_name: {object_name}")
+
+
+            minio_client.put_object(
+                bucket_name=bucket_name,
+                object_name=object_name,
+                data=io.BytesIO(frames_avif_bytes),
+                length=len(frames_avif_bytes),
+                content_type="image/avif"
+            )
+
+            contador_minio_frames += 1
+            stacks_ids_minio.put(object_name)
+            print(f"Frame enviado para o minio: {contador_minio_frames}")
+
+        except Exception as e:
+            print(f"Erro ao enviar o frame para o MinIO: {e}")
+
+def upload_frame_for_minio_hands(id_monitoramento, bucket_name):
+    contador_minio_frames = 0
+    while True:
+        #frames_avif_bytes = stack_frames_avif.get()
+        frames_avif_bytes_hands = stack_frames_avif_hands.get()
+        try:
+            if frames_avif_bytes_hands is None:
+                #stacks_ids_minio.put(None)
+                stacks_ids_minio_hands.put(None)
+                #stack_frames_avif.task_done()
+                stack_frames_for_avif_hands.task_done()
+
 
 
             #Aqui eh o mesmo processo, apenas para fins de teste irei deixar desoeganizado nessa parte, irei refatorar para nao ficar repetindo código
@@ -409,14 +453,6 @@ def upload_frame_for_minio(id_monitoramento, bucket_name):
 
             minio_client.put_object(
                 bucket_name=bucket_name,
-                object_name=object_name,
-                data=io.BytesIO(frames_avif_bytes),
-                length=len(frames_avif_bytes),
-                content_type="image/avif"
-            )
-
-            minio_client.put_object(
-                bucket_name=bucket_name,
                 object_name=object_name_hands,
                 data=io.BytesIO(frames_avif_bytes_hands),
                 length=len(frames_avif_bytes_hands),
@@ -424,7 +460,6 @@ def upload_frame_for_minio(id_monitoramento, bucket_name):
             )
 
             contador_minio_frames += 1
-            stacks_ids_minio.put(object_name)
             stacks_ids_minio_hands.put(object_name_hands)
             print(f"Frame enviado para o minio: {contador_minio_frames}")
 
@@ -433,19 +468,24 @@ def upload_frame_for_minio(id_monitoramento, bucket_name):
 
 def generate_template_payload(id_monitoramento):
     global collected_data
-
+    print("Chamou esse cara")
     cronometro_paylaod = time.time()
     collected_data = []
     contador_payload = 0
 
     while True:
+
         payload_response_template = stack_frames_rula.get()
         payload_hand_count_template = stack_frames_ml.get()
         ids_minio = stacks_ids_minio.get()
         cronometro_paylaod_resolve = time.time()
+        print("payload_response_template recebido:", payload_response_template)
+        print("payload_hand_count_template recebido:", payload_hand_count_template)
+        print("ids_minio recebido:", ids_minio)
 
         try:
             if payload_response_template is None:
+                print("Entrou no if")
                 stack_payload_template.put(None)
                 stack_frames_rula.task_done()
                 stacks_ids_minio.task_done()
@@ -454,6 +494,7 @@ def generate_template_payload(id_monitoramento):
                 break
 
             contador_payload += 1
+            print("Entrando no create da point")
             data_point = create_data_point(payload_response_template, payload_hand_count_template, id_monitoramento, ids_minio)
             #print(f"data_point gerado: {data_point}")
             print(f"Data_point gerado: {contador_payload}")
@@ -474,7 +515,7 @@ def start_record():
             }), 400
 
         id_monitoramento = dados_payload.get('id_monitoramento')
-        index_cam = int(dados_payload.get('index_cam'))
+        index_cam = dados_payload.get('index_cam')
         cronometro = int(dados_payload.get('time'))
 
         #if cronometro < 60 or cronometro > 300:
@@ -483,34 +524,32 @@ def start_record():
         #        "message":"Tempo de captura não suportado. O valor mínimo é 60 segundos e o máximo é 500 segundos."
         #    }), 400
 
-        if index_cam == 7:
-            thread_processing_two_cams = threading.Thread(target=create_stack_frames, args=(0, cronometro, ), name="Thread de montagem de pilha de frames com duas câmeras para o rula")
-            thread_processing_two_cams_ml = threading.Thread(target=create_stack_frames_for_ml, args=(1, cronometro,),
+        if len(index_cam) > 1:
+            thread_mouting_stack_frames = threading.Thread(target=create_stack_frames, args=(index_cam["0"], cronometro),
+                                                          name="Thread de montagem de pilha de frames com duas câmeras para o rula")
+            thread_processing_two_cams_ml = threading.Thread(target=create_stack_frames_for_ml, args=(index_cam["1"], cronometro,),
                                                           name="Thread de montagem de pilha de frames com duas câmeras para o modelo")
-            thread_processing_two_cams.start()
+            thread_mouting_stack_frames.start()
             thread_processing_two_cams_ml.start()
-            """
-            return jsonify({
-                "status":"sucess",
-                "message":"Captura com duas cãmeras iniciadas"
-            })
-            """
-
         else:
-            thread_mouting_stack_frames = threading.Thread(target=create_stack_frames, args=(index_cam, cronometro, True), name="Montagem da pilha de frames")
+            thread_mouting_stack_frames = threading.Thread(target=create_stack_frames, args=(index_cam["0"], cronometro), name="Montagem da pilha de frames")
             thread_mouting_stack_frames.start()
 
         thread_apply_rula = threading.Thread(target=consumer_and_apply_rula_processing, name="aplicação do rula na primeira pilha de frames")
         thread_apply_ml = threading.Thread(target=consumer_integration_ml, name="Integracao com o modelo de ML")
         thread_convert_for_avif = threading.Thread(target=consumer_and_convert_for_avif, name="Conversao dos frames para o formato avif")
+        thread_convert_for_avif_hands = threading.Thread(target=consumer_and_convert_for_avif_hands, name="Conversao dos frames para o formato avif")
         thread_upload_images_minio = threading.Thread(target=upload_frame_for_minio, args=(id_monitoramento, bucketName), name="Upload dos frames no formato avif para o minio")
-        thread_template_payload = threading.Thread(target=generate_template_payload, args=(id_monitoramento), name="Geracao do template do payload no formato de dicionario")
+        thread_upload_images_minio_hands = threading.Thread(target=upload_frame_for_minio_hands, args=(id_monitoramento, bucketName), name="Upload dos frames das maos no formato avif para o minio")
+        thread_template_payload = threading.Thread(target=generate_template_payload, args=(id_monitoramento,), name="Geracao do template do payload no formato de dicionario")
 
 
         thread_apply_rula.start()
         thread_apply_ml.start()
         thread_convert_for_avif.start()
+        thread_convert_for_avif_hands.start()
         thread_upload_images_minio.start()
+        thread_upload_images_minio_hands.start()
         thread_template_payload.start()
 
         return jsonify({
@@ -550,7 +589,7 @@ def calibration():
                 "pose_points": pose_points,
                 "hand_points": hand_points
             })
-        else:
+        else: #vira um if pra retornar o payload completo
             for key, value in index_cam.items():
                 results = calibration_cam(value)
                 if key == "0":

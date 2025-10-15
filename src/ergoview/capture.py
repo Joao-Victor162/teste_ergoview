@@ -388,10 +388,10 @@ class PoseProcessorYOLO:
         ps, apo, sp, hs, aho, sh = self.calibration_camera(pose_results, hand_results)
 
 
-        if ps:
-            print(ps)
+        #if ps:
+            #print(ps)
         #if(apo):
-            print(apo)
+            #print(apo)
         #for s in sh:
             #print(s)
             #pass
