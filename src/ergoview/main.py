@@ -137,7 +137,7 @@ def count_hall_method(count_moviments):
 def calibration_cam(index_cam):
     try:
         count_frames = 0
-        cap_calibration = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
+        cap_calibration = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)
 
         cap_calibration.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap_calibration.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -188,7 +188,7 @@ def calibration_cam(index_cam):
 
 
 def create_stack_frames(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -234,7 +234,7 @@ def create_stack_frames(index_cam: int, limit_frames: int):
             continue
 
 def create_stack_frames_for_ml(index_cam: int, limit_frames: int):
-    cap = cv2.VideoCapture(index_cam, cv2.CAP_DSHOW)#apagar esse cara quando estiver no linux
+    cap = cv2.VideoCapture(index_cam, cv2.CAP_V4L2)#apagar esse cara quando estiver no linux
 
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
